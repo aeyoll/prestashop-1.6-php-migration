@@ -16,4 +16,5 @@ git clone https://github.com/aeyoll/prestashop-1.6-php-migration.git
 cd prestashop-1.6-php-migration
 cp * your-prestashop-dir
 cd your-prestashop-dir
+composer install
 ./migrate.sh
