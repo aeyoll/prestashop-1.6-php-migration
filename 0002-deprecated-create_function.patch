@@ -1,0 +1,467 @@
+From 893764ceaf0cafaa70e6b12ff545c6d1b181f20c Mon Sep 17 00:00:00 2001
+From: Prestashop Migration <example@example.org>
+Date: Sun, 6 Jun 2021 12:19:53 +0200
+Subject: [PATCH] =?UTF-8?q?Transforme=20les=20appels=20=C3=A0=20create=5Ff?=
+ =?UTF-8?q?unction=20en=20functions=20anonymes?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ classes/AdminTab.php                          |   4 +-
+ classes/Tools.php                             |  10 +-
+ classes/helper/HelperList.php                 |   4 +-
+ classes/module/Module.php                     |   5 +-
+ .../AdminAttributeGeneratorController.php     |   2 +-
+ .../fashion/data/generate_attribute.php       |   4 +-
+ tools/profiling/Controller.php                |   4 +-
+ tools/tcpdf/tcpdf.php                         | 132 ++++++++++--------
+ 8 files changed, 96 insertions(+), 69 deletions(-)
+
+diff --git a/classes/AdminTab.php b/classes/AdminTab.php
+index 5aeee50..0f223c2 100644
+--- a/classes/AdminTab.php
++++ b/classes/AdminTab.php
+@@ -1672,7 +1672,9 @@ abstract class AdminTabCore
+
+         $irow = 0;
+         if ($this->_list && isset($this->fieldsDisplay['position'])) {
+-            $positions = array_map(create_function('$elem', 'return (int)$elem[\'position\'];'), $this->_list);
++            $positions = array_map(function($elem) {
++                return (int)$elem['position'];
++            }, $this->_list);
+             sort($positions);
+         }
+         if ($this->_list) {
+diff --git a/classes/Tools.php b/classes/Tools.php
+index b3e1dc7..dca3a18 100644
+--- a/classes/Tools.php
++++ b/classes/Tools.php
+@@ -2074,7 +2074,7 @@ class ToolsCore
+         if ($stream_context == null && !$is_local_file) {
+             $stream_context = @stream_context_create(array('http' => array('timeout' => $curl_timeout), 'ssl' => array('verify_peer' => true)));
+         }
+-
++
+         if (in_array(ini_get('allow_url_fopen'), array('On', 'on', '1')) || $is_local_file) {
+             $content = @file_get_contents($url, $use_include_path, $stream_context);
+             if (!in_array($content, array('', false)) || $is_local_file || !$fallback) {
+@@ -2148,7 +2148,9 @@ class ToolsCore
+         if ($catapitalise_first_char) {
+             $str = Tools::ucfirst($str);
+         }
+-        return preg_replace_callback('/_+([a-z])/', create_function('$c', 'return strtoupper($c[1]);'), $str);
++        return preg_replace_callback('/_+([a-z])/', function($c) {
++            return strtoupper($c[1]);
++        }, $str);
+     }
+
+     /**
+@@ -3733,7 +3735,9 @@ exit;
+             return;
+         }
+
+-        $sort_function = create_function('$a, $b', "return \$b['$column'] > \$a['$column'] ? 1 : -1;");
++        $sort_function = function($a, $b) use ($column) {
++            return $b[$column] > $a[$column] ? 1 : -1;
++        };
+
+         uasort($rows, $sort_function);
+
+diff --git a/classes/helper/HelperList.php b/classes/helper/HelperList.php
+index 5e200ae..55571d8 100644
+--- a/classes/helper/HelperList.php
++++ b/classes/helper/HelperList.php
+@@ -195,7 +195,9 @@ class HelperListCore extends Helper
+                 $position_group_identifier = Category::getRootCategory()->id;
+             }
+
+-            $positions = array_map(create_function('$elem', 'return (int)($elem[\'position\']);'), $this->_list);
++            $positions = array_map(function($elem) {
++                return (int)($elem['position']);
++            }, $this->_list);
+             sort($positions);
+         }
+
+diff --git a/classes/module/Module.php b/classes/module/Module.php
+index a616a30..9daeef6 100644
+--- a/classes/module/Module.php
++++ b/classes/module/Module.php
+@@ -1551,7 +1551,10 @@ abstract class ModuleCore
+             }
+         }
+
+-        usort($module_list, create_function('$a,$b', 'return strnatcasecmp($a->displayName, $b->displayName);'));
++        usort($module_list, function($a, $b) {
++            return strnatcasecmp($a->displayName, $b->displayName);
++        });
++
+         if ($errors) {
+             if (!isset(Context::getContext()->controller) && !Context::getContext()->controller->controller_name) {
+                 echo '<div class="alert error"><h3>'.Tools::displayError('The following module(s) could not be loaded').':</h3><ol>';
+diff --git a/controllers/admin/AdminAttributeGeneratorController.php b/controllers/admin/AdminAttributeGeneratorController.php
+index 7c3a699..5be1d55 100644
+--- a/controllers/admin/AdminAttributeGeneratorController.php
++++ b/controllers/admin/AdminAttributeGeneratorController.php
+@@ -76,7 +76,7 @@ class AdminAttributeGeneratorControllerCore extends AdminController
+     protected static function createCombinations($list)
+     {
+         if (count($list) <= 1) {
+-            return count($list) ? array_map(create_function('$v', 'return (array($v));'), $list[0]) : $list;
++            return count($list) ? array_map(('$v', 'return (array($v));'), $list[0]) : $list;
+         }
+         $res = array();
+         $first = array_pop($list);
+diff --git a/install-dev/fixtures/fashion/data/generate_attribute.php b/install-dev/fixtures/fashion/data/generate_attribute.php
+index 936799a..0095103 100644
+--- a/install-dev/fixtures/fashion/data/generate_attribute.php
++++ b/install-dev/fixtures/fashion/data/generate_attribute.php
+@@ -200,7 +200,9 @@ echo $content_product_attribute_combination;
+ function createCombinations($list)
+ {
+     if (count($list) <= 1) {
+-        return count($list) ? array_map(create_function('$v', 'return (array($v));'), array_shift($list)) : $list;
++        return count($list) ? array_map(function($v) {
++            return (array($v));
++        }, array_shift($list)) : $list;
+     }
+     $res = array();
+     $first = array_pop($list);
+diff --git a/tools/profiling/Controller.php b/tools/profiling/Controller.php
+index 024bdd3..a309c68 100644
+--- a/tools/profiling/Controller.php
++++ b/tools/profiling/Controller.php
+@@ -355,7 +355,9 @@ abstract class Controller extends ControllerCore
+             $this->array_queries[] = $query_row;
+         }
+
+-        uasort(ObjectModel::$debug_list, create_function('$a,$b', 'return (count($a) < count($b)) ? 1 : -1;'));
++        uasort(ObjectModel::$debug_list, function($a, $b) {
++            return (count($a) < count($b)) ? 1 : -1;
++        });
+         arsort(Db::getInstance()->tables);
+         arsort(Db::getInstance()->uniqQueries);
+     }
+diff --git a/tools/tcpdf/tcpdf.php b/tools/tcpdf/tcpdf.php
+index 6630806..f96d630 100755
+--- a/tools/tcpdf/tcpdf.php
++++ b/tools/tcpdf/tcpdf.php
+@@ -76,7 +76,7 @@
+ // dullus for text Justification.
+ // Bob Vincent (pillarsdotnet@users.sourceforge.net) for <li> value attribute.
+ // Patrick Benny for text stretch suggestion on Cell().
+-// Johannes G�ntert for JavaScript support.
++// Johannes G�ntert for JavaScript support.
+ // Denis Van Nuffelen for Dynamic Form.
+ // Jacek Czekaj for multibyte justification
+ // Anthony Ferrara for the reintroduction of legacy image methods.
+@@ -87,7 +87,7 @@
+ // Mohamad Ali Golkar, Saleh AlMatrafe, Charles Abbott for Arabic and Persian support.
+ // Moritz Wagner and Andreas Wurmser for graphic functions.
+ // Andrew Whitehead for core fonts support.
+-// Esteban Jo�l Mar�n for OpenType font conversion.
++// Esteban Jo�l Mar�n for OpenType font conversion.
+ // Teus Hagen for several suggestions and fixes.
+ // Yukihiro Nakadaira for CID-0 CJK fonts fixes.
+ // Kosmas Papachristos for some CSS improvements.
+@@ -141,7 +141,7 @@
+  * @version 5.9.179
+  */
+
+-/*
++/*
+ 	PrestaShop
+ 	all calls to file_exists replaced by Tools::file_exists_no_cache()
+ */
+@@ -7060,7 +7060,7 @@ class TCPDF {
+ 	 * @param $cellpadding (float) Internal cell padding, if empty uses default cell padding.
+ 	 * @param $border (mixed) Indicates if borders must be drawn around the cell. The value can be a number:<ul><li>0: no border (default)</li><li>1: frame</li></ul> or a string containing some or all of the following characters (in any order):<ul><li>L: left</li><li>T: top</li><li>R: right</li><li>B: bottom</li></ul> or an array of line styles for each border group - for example: array('LTRB' => array('width' => 2, 'cap' => 'butt', 'join' => 'miter', 'dash' => 0, 'color' => array(0, 0, 0)))
+ 	 * @return float Return the minimal height needed for multicell method for printing the $txt param.
+-	 * @author Alexander Escalona Fern�ndez, Nicola Asuni
++	 * @author Alexander Escalona Fern�ndez, Nicola Asuni
+ 	 * @public
+ 	 * @since 4.5.011
+ 	 */
+@@ -7167,7 +7167,7 @@ class TCPDF {
+ 	 * @param $cellpadding (float) Internal cell padding, if empty uses default cell padding.
+ 	 * @param $border (mixed) Indicates if borders must be drawn around the cell. The value can be a number:<ul><li>0: no border (default)</li><li>1: frame</li></ul> or a string containing some or all of the following characters (in any order):<ul><li>L: left</li><li>T: top</li><li>R: right</li><li>B: bottom</li></ul> or an array of line styles for each border group - for example: array('LTRB' => array('width' => 2, 'cap' => 'butt', 'join' => 'miter', 'dash' => 0, 'color' => array(0, 0, 0)))
+ 	 * @return float Return the minimal height needed for multicell method for printing the $txt param.
+-	 * @author Nicola Asuni, Alexander Escalona Fern�ndez
++	 * @author Nicola Asuni, Alexander Escalona Fern�ndez
+ 	 * @public
+ 	 */
+ 	public function getStringHeight($w, $txt, $reseth=false, $autopadding=true, $cellpadding='', $border=0) {
+@@ -8081,7 +8081,7 @@ class TCPDF {
+ 			if (!$info) {
+ 				if (function_exists($gdfunction)) {
+ 					// GD library
+-					$img = $gdfunction($file);
++					$img = $gdfunction ($file);
+ 					if ($resize) {
+ 						$imgr = imagecreatetruecolor($neww, $newh);
+ 						if (($type == 'gif') or ($type == 'png')) {
+@@ -15264,7 +15264,7 @@ class TCPDF {
+ 	}
+
+ 	/**
+-	 * Append a cubic B�zier curve to the current path. The curve shall extend from the current point to the point (x3, y3), using (x1, y1) and (x2, y2) as the B�zier control points.
++	 * Append a cubic B�zier curve to the current path. The curve shall extend from the current point to the point (x3, y3), using (x1, y1) and (x2, y2) as the B�zier control points.
+ 	 * The new current point shall be (x3, y3).
+ 	 * @param $x1 (float) Abscissa of control point 1.
+ 	 * @param $y1 (float) Ordinate of control point 1.
+@@ -15280,7 +15280,7 @@ class TCPDF {
+ 	}
+
+ 	/**
+-	 * Append a cubic B�zier curve to the current path. The curve shall extend from the current point to the point (x3, y3), using the current point and (x2, y2) as the B�zier control points.
++	 * Append a cubic B�zier curve to the current path. The curve shall extend from the current point to the point (x3, y3), using the current point and (x2, y2) as the B�zier control points.
+ 	 * The new current point shall be (x3, y3).
+ 	 * @param $x2 (float) Abscissa of control point 2.
+ 	 * @param $y2 (float) Ordinate of control point 2.
+@@ -15294,7 +15294,7 @@ class TCPDF {
+ 	}
+
+ 	/**
+-	 * Append a cubic B�zier curve to the current path. The curve shall extend from the current point to the point (x3, y3), using (x1, y1) and (x3, y3) as the B�zier control points.
++	 * Append a cubic B�zier curve to the current path. The curve shall extend from the current point to the point (x3, y3), using (x1, y1) and (x3, y3) as the B�zier control points.
+ 	 * The new current point shall be (x3, y3).
+ 	 * @param $x1 (float) Abscissa of control point 1.
+ 	 * @param $y1 (float) Ordinate of control point 1.
+@@ -16676,7 +16676,7 @@ class TCPDF {
+ 	/**
+ 	 * Create a javascript PDF string.
+ 	 * @protected
+-	 * @author Johannes G�ntert, Nicola Asuni
++	 * @author Johannes G�ntert, Nicola Asuni
+ 	 * @since 5.9.098 (2011-06-23)
+ 	 */
+ 	protected function _putdests() {
+@@ -16875,7 +16875,7 @@ class TCPDF {
+ 	 * Adds a javascript
+ 	 * @param $script (string) Javascript code
+ 	 * @public
+-	 * @author Johannes G�ntert, Nicola Asuni
++	 * @author Johannes G�ntert, Nicola Asuni
+ 	 * @since 2.1.002 (2008-02-12)
+ 	 */
+ 	public function IncludeJS($script) {
+@@ -16904,7 +16904,7 @@ class TCPDF {
+ 	/**
+ 	 * Create a javascript PDF string.
+ 	 * @protected
+-	 * @author Johannes G�ntert, Nicola Asuni
++	 * @author Johannes G�ntert, Nicola Asuni
+ 	 * @since 2.1.002 (2008-02-12)
+ 	 */
+ 	protected function _putjavascript() {
+@@ -18934,7 +18934,7 @@ class TCPDF {
+ 	 * @param $col1 (array) first color (Grayscale, RGB or CMYK components).
+ 	 * @param $col2 (array) second color (Grayscale, RGB or CMYK components).
+ 	 * @param $coords (array) array of the form (x1, y1, x2, y2) which defines the gradient vector (see linear_gradient_coords.jpg). The default value is from left to right (x1=0, y1=0, x2=1, y2=0).
+-	 * @author Andreas W�rmser, Nicola Asuni
++	 * @author Andreas W�rmser, Nicola Asuni
+ 	 * @since 3.1.000 (2008-06-09)
+ 	 * @public
+ 	 */
+@@ -18952,7 +18952,7 @@ class TCPDF {
+ 	 * @param $col1 (array) first color (Grayscale, RGB or CMYK components).
+ 	 * @param $col2 (array) second color (Grayscale, RGB or CMYK components).
+ 	 * @param $coords (array) array of the form (fx, fy, cx, cy, r) where (fx, fy) is the starting point of the gradient with color1, (cx, cy) is the center of the circle with color2, and r is the radius of the circle (see radial_gradient_coords.jpg). (fx, fy) should be inside the circle, otherwise some areas will not be defined.
+-	 * @author Andreas W�rmser, Nicola Asuni
++	 * @author Andreas W�rmser, Nicola Asuni
+ 	 * @since 3.1.000 (2008-06-09)
+ 	 * @public
+ 	 */
+@@ -18975,7 +18975,7 @@ class TCPDF {
+ 	 * @param $coords_min (array) minimum value used by the coordinates. If a coordinate's value is smaller than this it will be cut to coords_min. default: 0
+ 	 * @param $coords_max (array) maximum value used by the coordinates. If a coordinate's value is greater than this it will be cut to coords_max. default: 1
+ 	 * @param $antialias (boolean) A flag indicating whether to filter the shading function to prevent aliasing artifacts.
+-	 * @author Andreas W�rmser, Nicola Asuni
++	 * @author Andreas W�rmser, Nicola Asuni
+ 	 * @since 3.1.000 (2008-06-09)
+ 	 * @public
+ 	 */
+@@ -19067,7 +19067,7 @@ class TCPDF {
+ 	 * @param $y (float) ordinate of the top left corner of the rectangle.
+ 	 * @param $w (float) width of the rectangle.
+ 	 * @param $h (float) height of the rectangle.
+-	 * @author Andreas W�rmser, Nicola Asuni
++	 * @author Andreas W�rmser, Nicola Asuni
+ 	 * @since 3.1.000 (2008-06-09)
+ 	 * @protected
+ 	 */
+@@ -20576,19 +20576,19 @@ class TCPDF {
+ 		// remove empty blocks
+ 		$cssdata = preg_replace('/([^\}\{]+)\{\}/', '', $cssdata);
+ 		// replace media type parenthesis
+-		$cssdata = preg_replace('/@media[\s]+([^\{]*)\{/i', '@media \\1�', $cssdata);
+-		$cssdata = preg_replace('/\}\}/si', '}�', $cssdata);
++		$cssdata = preg_replace('/@media[\s]+([^\{]*)\{/i', '@media \\1�', $cssdata);
++		$cssdata = preg_replace('/\}\}/si', '}�', $cssdata);
+ 		// trim string
+ 		$cssdata = trim($cssdata);
+ 		// find media blocks (all, braille, embossed, handheld, print, projection, screen, speech, tty, tv)
+ 		$cssblocks = array();
+ 		$matches = array();
+-		if (preg_match_all('/@media[\s]+([^\�]*)�([^�]*)�/i', $cssdata, $matches) > 0) {
++		if (preg_match_all('/@media[\s]+([^\�]*)�([^�]*)�/i', $cssdata, $matches) > 0) {
+ 			foreach ($matches[1] as $key => $type) {
+ 				$cssblocks[$type] = $matches[2][$key];
+ 			}
+ 			// remove media blocks
+-			$cssdata = preg_replace('/@media[\s]+([^\�]*)�([^�]*)�/i', '', $cssdata);
++			$cssdata = preg_replace('/@media[\s]+([^\�]*)�([^�]*)�/i', '', $cssdata);
+ 		}
+ 		// keep 'all' and 'print' media, other media types are discarded
+ 		if (isset($cssblocks['all']) and !empty($cssblocks['all'])) {
+@@ -22723,9 +22723,11 @@ Putting 1 is equivalent to putting 0 and calling Ln() just after. Default value:
+ 											}
+ 											// justify block
+ 											$pmid = preg_replace_callback('/([0-9\.\+\-]*)[\s]('.$strpiece[1][0].')[\s]('.$strpiece[2][0].')([\s]*)/x',
+-												create_function('$matches', 'global $spacew;
+-												$newx = sprintf("%F",(floatval($matches[1]) + $spacew));
+-												return "".$newx." ".$matches[2]." x*#!#*x".$matches[3].$matches[4];'), $pmid, 1);
++												function ($matches) {
++													global $spacew;
++													$newx = sprintf("%F",(floatval($matches[1]) + $spacew));
++													return "".$newx." ".$matches[2]." x*#!#*x".$matches[3].$matches[4];
++												}, $pmid, 1);
+ 											break;
+ 										}
+ 										case 're': {
+@@ -22765,10 +22767,12 @@ Putting 1 is equivalent to putting 0 and calling Ln() just after. Default value:
+ 												}
+ 											}
+ 											$pmid = preg_replace_callback('/('.$xmatches[1].')[\s]('.$xmatches[2].')[\s]('.$xmatches[3].')[\s]('.$strpiece[1][0].')[\s](re)([\s]*)/x',
+-												create_function('$matches', 'global $x_diff, $w_diff;
+-												$newx = sprintf("%F",(floatval($matches[1]) + $x_diff));
+-												$neww = sprintf("%F",(floatval($matches[3]) + $w_diff));
+-												return "".$newx." ".$matches[2]." ".$neww." ".$matches[4]." x*#!#*x".$matches[5].$matches[6];'), $pmid, 1);
++												function ($matches) {
++													global $x_diff, $w_diff;
++													$newx = sprintf("%F",(floatval($matches[1]) + $x_diff));
++													$neww = sprintf("%F",(floatval($matches[3]) + $w_diff));
++													return "".$newx." ".$matches[2]." ".$neww." ".$matches[4]." x*#!#*x".$matches[5].$matches[6];
++												}, $pmid, 1);
+ 											break;
+ 										}
+ 										case 'c': {
+@@ -22777,11 +22781,13 @@ Putting 1 is equivalent to putting 0 and calling Ln() just after. Default value:
+ 											$currentxpos = $xmatches[1];
+ 											// justify block
+ 											$pmid = preg_replace_callback('/('.$xmatches[1].')[\s]('.$xmatches[2].')[\s]('.$xmatches[3].')[\s]('.$xmatches[4].')[\s]('.$xmatches[5].')[\s]('.$strpiece[1][0].')[\s](c)([\s]*)/x',
+-												create_function('$matches', 'global $spacew;
+-												$newx1 = sprintf("%F",(floatval($matches[1]) + $spacew));
+-												$newx2 = sprintf("%F",(floatval($matches[3]) + $spacew));
+-												$newx3 = sprintf("%F",(floatval($matches[5]) + $spacew));
+-												return "".$newx1." ".$matches[2]." ".$newx2." ".$matches[4]." ".$newx3." ".$matches[6]." x*#!#*x".$matches[7].$matches[8];'), $pmid, 1);
++												function ($matches) {
++													global $spacew;
++													$newx1 = sprintf("%F",(floatval($matches[1]) + $spacew));
++													$newx2 = sprintf("%F",(floatval($matches[3]) + $spacew));
++													$newx3 = sprintf("%F",(floatval($matches[5]) + $spacew));
++													return "".$newx1." ".$matches[2]." ".$newx2." ".$matches[4]." ".$newx3." ".$matches[6]." x*#!#*x".$matches[7].$matches[8];
++												}, $pmid, 1);
+ 											break;
+ 										}
+ 									}
+@@ -22829,10 +22835,12 @@ Putting 1 is equivalent to putting 0 and calling Ln() just after. Default value:
+ 									$pmidtemp = preg_replace('/[\\\][\(]/x', '\\#!#OP#!#', $pmidtemp);
+ 									$pmidtemp = preg_replace('/[\\\][\)]/x', '\\#!#CP#!#', $pmidtemp);
+ 									$pmid = preg_replace_callback("/\[\(([^\)]*)\)\]/x",
+-												create_function('$matches', 'global $spacew;
+-												$matches[1] = str_replace("#!#OP#!#", "(", $matches[1]);
+-												$matches[1] = str_replace("#!#CP#!#", ")", $matches[1]);
+-												return "[(".str_replace(chr(0).chr(32), ") ".sprintf("%F", $spacew)." (", $matches[1]).")]";'), $pmidtemp);
++												function ($matches) {
++													global $spacew;
++													$matches[1] = str_replace("#!#OP#!#", "(", $matches[1]);
++													$matches[1] = str_replace("#!#CP#!#", ")", $matches[1]);
++													return "[(".str_replace(chr(0).chr(32), ") ".sprintf("%F", $spacew)." (", $matches[1]).")]";
++												}, $pmidtemp);
+ 									if ($this->inxobj) {
+ 										// we are inside an XObject template
+ 										$this->xobjects[$this->xobjid]['outdata'] = $pstart."\n".$pmid."\n".$pend;
+@@ -26051,17 +26059,19 @@ Putting 1 is equivalent to putting 0 and calling Ln() just after. Default value:
+ 		$jfrompage = $frompage;
+ 		$jtopage = $topage;
+ 		$this->javascript = preg_replace_callback('/this\.addField\(\'([^\']*)\',\'([^\']*)\',([0-9]+)/',
+-			create_function('$matches', 'global $jfrompage, $jtopage;
+-			$pagenum = intval($matches[3]) + 1;
+-			if (($pagenum >= $jtopage) AND ($pagenum < $jfrompage)) {
+-				$newpage = ($pagenum + 1);
+-			} elseif ($pagenum == $jfrompage) {
+-				$newpage = $jtopage;
+-			} else {
+-				$newpage = $pagenum;
+-			}
+-			--$newpage;
+-			return "this.addField(\'".$matches[1]."\',\'".$matches[2]."\',".$newpage."";'), $tmpjavascript);
++			function ($matches) {
++				global $jfrompage, $jtopage;
++				$pagenum = intval($matches[3]) + 1;
++				if (($pagenum >= $jtopage) AND ($pagenum < $jfrompage)) {
++					$newpage = ($pagenum + 1);
++				} elseif ($pagenum == $jfrompage) {
++					$newpage = $jtopage;
++				} else {
++					$newpage = $pagenum;
++				}
++				--$newpage;
++				return "this.addField(\'".$matches[1]."\',\'".$matches[2]."\',".$newpage."";
++			}, $tmpjavascript);
+ 		// return to last page
+ 		$this->lastPage(true);
+ 		return true;
+@@ -26231,17 +26241,19 @@ Putting 1 is equivalent to putting 0 and calling Ln() just after. Default value:
+ 		global $jpage;
+ 		$jpage = $page;
+ 		$this->javascript = preg_replace_callback('/this\.addField\(\'([^\']*)\',\'([^\']*)\',([0-9]+)/',
+-			create_function('$matches', 'global $jpage;
+-			$pagenum = intval($matches[3]) + 1;
+-			if ($pagenum >= $jpage) {
+-				$newpage = ($pagenum - 1);
+-			} elseif ($pagenum == $jpage) {
+-				$newpage = 1;
+-			} else {
+-				$newpage = $pagenum;
+-			}
+-			--$newpage;
+-			return "this.addField(\'".$matches[1]."\',\'".$matches[2]."\',".$newpage."";'), $tmpjavascript);
++			function ($matches) {
++				global $jpage;
++				$pagenum = intval($matches[3]) + 1;
++				if ($pagenum >= $jpage) {
++					$newpage = ($pagenum - 1);
++				} elseif ($pagenum == $jpage) {
++					$newpage = 1;
++				} else {
++					$newpage = $pagenum;
++				}
++				--$newpage;
++				return "this.addField(\'".$matches[1]."\',\'".$matches[2]."\',".$newpage."";
++			}, $tmpjavascript);
+ 		// return to last page
+ 		$this->lastPage(true);
+ 		return true;
+@@ -28796,7 +28808,7 @@ Putting 1 is equivalent to putting 0 and calling Ln() just after. Default value:
+ 					}
+ 					break;
+ 				}
+-				case 'Q': { // quadratic B�zier curveto
++				case 'Q': { // quadratic B�zier curveto
+ 					foreach ($params as $ck => $cp) {
+ 						$params[$ck] = $cp;
+ 						if ((($ck + 1) % 4) == 0) {
+@@ -28822,7 +28834,7 @@ Putting 1 is equivalent to putting 0 and calling Ln() just after. Default value:
+ 					}
+ 					break;
+ 				}
+-				case 'T': { // shorthand/smooth quadratic B�zier curveto
++				case 'T': { // shorthand/smooth quadratic B�zier curveto
+ 					foreach ($params as $ck => $cp) {
+ 						$params[$ck] = $cp;
+ 						if (($ck % 2) != 0) {
+--
+2.31.1
+

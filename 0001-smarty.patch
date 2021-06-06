@@ -1,0 +1,31 @@
+From fd776322c1678bd2353e7c5edf12e324e66ea2b6 Mon Sep 17 00:00:00 2001
+From: Prestashop Migration <example@example.org>
+Date: Sat, 5 Jun 2021 16:21:37 +0200
+Subject: [PATCH] =?UTF-8?q?Corrige=20la=20compatibilit=C3=A9=20avec=20PHP?=
+ =?UTF-8?q?=207.3?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ tools/smarty/sysplugins/smarty_internal_compilebase.php | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/tools/smarty/sysplugins/smarty_internal_compilebase.php b/tools/smarty/sysplugins/smarty_internal_compilebase.php
+index f78f15f..ba1395c 100644
+--- a/tools/smarty/sysplugins/smarty_internal_compilebase.php
++++ b/tools/smarty/sysplugins/smarty_internal_compilebase.php
+@@ -72,7 +72,9 @@ abstract class Smarty_Internal_CompileBase
+                 }
+                 // named attribute
+             } else {
+-                $kv = each($mixed);
++                $kv['key'] = key($mixed);
++                $kv['value'] = current($mixed);
++
+                 // option flag?
+                 if (in_array($kv['key'], $this->option_flags)) {
+                     if (is_bool($kv['value'])) {
+--
+2.31.1
+
