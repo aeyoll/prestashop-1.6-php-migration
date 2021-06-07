@@ -2,6 +2,7 @@
 
 # Utils
 ###############################################################################
+
 display_help_message() {
     print_error "Usage: $0"
 }
@@ -19,10 +20,10 @@ bold_red() {
 
 # Cast all count parameters to array
 patch_cast_count_parameters() {
-    find . -type f -iname *.php -exec gsed -i 's/(count(\$/(count((array) \$/g' {} \;
-    find . -type f -iname *.php -exec gsed -i 's/ count(\$/ count((array) \$/g' {} \;
-    find . -type f -iname *.php -exec gsed -i 's/(!count(\$/(!count((array) \$/g' {} \;
-    find . -type f -iname *.php -exec gsed -i 's/ !count(\$/ !count((array) \$/g' {} \;
+    find . -type f -iname *.php -exec sed -i 's/(count(\$/(count((array) \$/g' {} \;
+    find . -type f -iname *.php -exec sed -i 's/ count(\$/ count((array) \$/g' {} \;
+    find . -type f -iname *.php -exec sed -i 's/(!count(\$/(!count((array) \$/g' {} \;
+    find . -type f -iname *.php -exec sed -i 's/ !count(\$/ !count((array) \$/g' {} \;
 }
 
 # Patch smarty
