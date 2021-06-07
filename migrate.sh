@@ -45,7 +45,15 @@ patch_rector() {
 # Main Process
 ###############################################################################
 
+change_patch_name() {
+    ORIGINAL_COMMITER = "From: Prestashop Migration <example@example.org>"
+    GIT_NAME = ${git config user.name}
+    GIT_EMAIL = ${git config user.email}
+    find . -type f -iname *.patch -exec sed -i "s/${ORIGINAL_COMMITER}/From: ${GIT_NAME} <${GIT_EMAIL}>/g" {} \;
+}
+
 run_migration() {
+    change_patch_name()
     patch_cast_count_parameters()
     patch_smarty()
     patch_deprecated_create_function()
