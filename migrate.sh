@@ -60,8 +60,6 @@ run_migration() {
 }
 
 main() {
-    local env=()
-
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --help)
@@ -71,9 +69,6 @@ main() {
             -*)
                 print_error "Unknown option \"$1\""
                 exit 1
-            ;;
-            *)
-               env="$1"
             ;;
         esac
 
